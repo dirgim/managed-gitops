@@ -36,12 +36,42 @@ type ApplicationSnapshotSpec struct {
 	// DisplayDescription is a user-visible, user definable description for the resource (and is not used for any functional behaviour)
 	DisplayDescription string `json:"displayDescription,omitempty"`
 
+	// Type is an optional definiton of how the ApplicationSnapshot was constructed
+	Type string `json:"type,omitempty"`
+
 	// Components field contains the sets of components to deploy as part of this snapshot.
 	Components []ApplicationSnapshotComponent `json:"components,omitempty"`
 
 	// Artifacts is a placeholder section for 'artifact links' we want to maintain to other AppStudio resources.
 	// See Environment API doc for details.
 	Artifacts SnapshotArtifacts `json:"artifacts,omitempty"`
+}
+
+// ApplicationSnapshotReason represents a reason for the release "Succeeded" condition
+type ApplicationSnapshotReason string
+
+const (
+	// applicationSnapshotConditionType is the type used when setting a release status condition
+	applicationSnapshotConditionType string = "Succeeded"
+
+	// ApplicationSnapshotReasonInitialized is the reason set when ApplicationSnapshot is initialized
+	ApplicationSnapshotReasonInitialized ApplicationSnapshotReason = "Initialized"
+
+	// ApplicationSnapshotReasonValidationError is the reason set when ApplicationSnapshot validation errored
+	ApplicationSnapshotReasonValidationError ApplicationSnapshotReason = "Error"
+
+	// ApplicationSnapshotReasonTestsFailed is the reason set when ApplicationSnapshot integration tests failed
+	ApplicationSnapshotReasonTestsFailed ApplicationSnapshotReason = "TestsFailed"
+
+	// ApplicationSnapshotReasonTestsRunning is the reason set when ApplicationSnapshot integration tests are running
+	ApplicationSnapshotReasonTestsRunning ApplicationSnapshotReason = "TestsRunning"
+
+	// ApplicationSnapshotReasonSucceeded is the reason set when the integration test PipelineRun has succeeded
+	ApplicationSnapshotReasonSucceeded ApplicationSnapshotReason = "Succeeded"
+)
+
+func (asr ApplicationSnapshotReason) String() string {
+	return string(asr)
 }
 
 // ApplicationSnapshotComponent
@@ -68,10 +98,28 @@ type SnapshotArtifacts struct {
 
 // ApplicationSnapshotStatus defines the observed state of ApplicationSnapshot
 type ApplicationSnapshotStatus struct {
+	// StartTime is the time when the Release PipelineRun was created and set to run
+	// +optional
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+
+	// CompletionTime is the time the Release PipelineRun completed
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+
+	// Conditions represent the latest available observations for the release
+	// +optional
+	Conditions []metav1.Condition `json:"conditions"`
+
+	// ReleasePipelineRun contains the namespaced name of the release PipelineRun executed as part of this release
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	ReleasePipelineRun string `json:"releasePipelineRun,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Succeeded",type=string,JSONPath=`.status.conditions[?(@.type=="Succeeded")].status`
+//+kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=="Succeeded")].reason`
 
 // ApplicationSnapshot is the Schema for the applicationsnapshots API
 type ApplicationSnapshot struct {
