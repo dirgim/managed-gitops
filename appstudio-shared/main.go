@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	appstudioredhatcomv1alpha1 "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
+	appstudioredhatcomv1alpha1 "github.com/dirgim/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 

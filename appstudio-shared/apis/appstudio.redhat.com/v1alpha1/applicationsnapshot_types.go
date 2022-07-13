@@ -18,7 +18,9 @@ package v1alpha1
 
 import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 // ApplicationSnapshotSpec defines the desired state of ApplicationSnapshot
@@ -128,6 +130,84 @@ type ApplicationSnapshot struct {
 
 	Spec   ApplicationSnapshotSpec   `json:"spec,omitempty"`
 	Status ApplicationSnapshotStatus `json:"status,omitempty"`
+}
+
+// HasStarted checks whether the ApplicationSnapshot has a valid start time set in its status.
+func (a *ApplicationSnapshot) HasStarted() bool {
+	return a.Status.StartTime != nil && !a.Status.StartTime.IsZero()
+}
+
+// HasSucceeded checks whether the ApplicationSnapshot has succeeded or not.
+func (a *ApplicationSnapshot) HasSucceeded() bool {
+	return !meta.IsStatusConditionTrue(a.Status.Conditions, applicationSnapshotConditionType)
+}
+
+// IsDone returns a boolean indicating whether the ApplicationSnapshot's status indicates that it is done or not.
+func (a *ApplicationSnapshot) IsDone() bool {
+	condition := meta.FindStatusCondition(a.Status.Conditions, applicationSnapshotConditionType)
+	if condition != nil {
+		return condition.Status != metav1.ConditionUnknown
+	}
+
+	return false
+}
+
+// MarkFailed registers the completion time and changes the Succeeded condition to False with
+// the provided reason and message.
+func (a *ApplicationSnapshot) MarkFailed(reason ApplicationSnapshotReason, message string) {
+	if a.IsDone() && a.Status.CompletionTime != nil {
+		return
+	}
+
+	a.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+	a.setStatusConditionWithMessage(metav1.ConditionFalse, reason, message)
+
+}
+
+// MarkInvalid changes the Succeeded condition to False with the provided reason and message.
+func (a *ApplicationSnapshot) MarkInvalid(reason ApplicationSnapshotReason, message string) {
+	if a.IsDone() {
+		return
+	}
+
+	a.setStatusConditionWithMessage(metav1.ConditionFalse, reason, message)
+}
+
+// MarkRunning registers the start time and changes the Succeeded condition to Unknown.
+func (a *ApplicationSnapshot) MarkRunning() {
+	if a.HasStarted() && a.Status.StartTime != nil {
+		return
+	}
+
+	a.Status.StartTime = &metav1.Time{Time: time.Now()}
+	a.setStatusCondition(metav1.ConditionUnknown, ApplicationSnapshotReasonTestsRunning)
+}
+
+// MarkSucceeded registers the completion time and changes the Succeeded condition to True.
+func (a *ApplicationSnapshot) MarkSucceeded() {
+	if a.IsDone() && a.Status.CompletionTime != nil {
+		return
+	}
+
+	a.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+	a.setStatusCondition(metav1.ConditionTrue, ApplicationSnapshotReasonSucceeded)
+}
+
+// SetCondition creates a new condition with the given status and reason. Then, it sets this new condition,
+// unsetting previous conditions with the same type as necessary.
+func (a *ApplicationSnapshot) setStatusCondition(status metav1.ConditionStatus, reason ApplicationSnapshotReason) {
+	a.setStatusConditionWithMessage(status, reason, "")
+}
+
+// SetCondition creates a new condition with the given status, reason and message. Then, it sets this new condition,
+// unsetting previous conditions with the same type as necessary.
+func (a *ApplicationSnapshot) setStatusConditionWithMessage(status metav1.ConditionStatus, reason ApplicationSnapshotReason, message string) {
+	meta.SetStatusCondition(&a.Status.Conditions, metav1.Condition{
+		Type:    applicationSnapshotConditionType,
+		Status:  status,
+		Reason:  reason.String(),
+		Message: message,
+	})
 }
 
 //+kubebuilder:object:root=true

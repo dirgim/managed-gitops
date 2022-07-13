@@ -1,4 +1,4 @@
-module github.com/redhat-appstudio/managed-gitops/appstudio-shared
+module github.com/dirgim/managed-gitops/appstudio-shared
 
 go 1.18
 
